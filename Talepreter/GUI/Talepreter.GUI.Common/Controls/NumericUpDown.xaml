@@ -1,0 +1,79 @@
+﻿<UserControl x:Class="Talepreter.GUI.Common.Controls.NumericUpDown"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:atch="clr-namespace:Talepreter.GUI.Common"
+             mc:Ignorable="d" 
+             x:Name="NumericUpDownInstance" MinWidth="48" Height="32">
+    <UserControl.Resources>
+        <VisualBrush x:Key="UpImage" TileMode="None" Stretch="Uniform">
+            <VisualBrush.Visual>
+                <Grid Width="8" Height="8">
+                    <Polygon Points="0,1 1,0 2,1" Stretch="Uniform" Fill="{StaticResource ControlBorderBrush}" Stroke="{StaticResource ControlBorderBrush}" StrokeLineJoin="Round" />
+                </Grid>
+            </VisualBrush.Visual>
+        </VisualBrush>
+
+        <VisualBrush x:Key="DownImage" TileMode="None" Stretch="Uniform">
+            <VisualBrush.Visual>
+                <Grid Width="8" Height="8">
+                    <Polygon Points="0,0 1,1 2,0" Stretch="Uniform" Fill="{StaticResource ControlBorderBrush}" Stroke="{StaticResource ControlBorderBrush}" StrokeLineJoin="Round" />
+                </Grid>
+            </VisualBrush.Visual>
+        </VisualBrush>
+
+        <Style x:Key="ButtonBaseStyle" TargetType="{x:Type ButtonBase}">
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ButtonBase}">
+                        <Border x:Name="Border">
+                            <Grid>
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" Name="_contentPresenter" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"></Setter>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource ControlFocusBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource ControlFocusBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </UserControl.Resources>
+    <Border BorderThickness="2" x:Name="Border" HorizontalAlignment="Stretch" BorderBrush="{StaticResource ControlBorderBrush}" CornerRadius="3">
+        <DockPanel LastChildFill="True" HorizontalAlignment="Stretch">
+            <UniformGrid Rows="2" DockPanel.Dock="Right" MinWidth="24" x:Name="BTNS" Visibility="Collapsed">
+                <RepeatButton IsEnabled="{Binding IsEnabled, ElementName=NumericUpDownInstance}" Grid.Column="1" Grid.Row="0" Padding="0" Command="{Binding ElementName=NumericUpDownInstance, Path=IncreaseCommand}" Style="{StaticResource ButtonBaseStyle}">
+                    <Grid Background="{StaticResource UpImage}" Width="8" Height="6" />
+                </RepeatButton>
+                <RepeatButton IsEnabled="{Binding IsEnabled, ElementName=NumericUpDownInstance}" Grid.Column="1" Grid.Row="1" Padding="0" Command="{Binding ElementName=NumericUpDownInstance, Path=DecreaseCommand}" Style="{StaticResource ButtonBaseStyle}">
+                    <Rectangle Fill="{StaticResource DownImage}" Width="8" Height="6" />
+                </RepeatButton>
+            </UniformGrid>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="1" BorderThickness="0" Padding="0" Style="{DynamicResource TextBoxStyle}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" x:Name="TXB"
+                    Cursor="Hand" atch:AttachedProperties.DisableFocusBorder="True" VerticalContentAlignment="Center" Text="{Binding ElementName=NumericUpDownInstance, Path=Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                    IsReadOnly="{Binding ElementName=NumericUpDownInstance, Path=IsReadOnly, Mode=TwoWay}" PreviewKeyDown="OnTextBoxKeyDown" />
+            </Grid>
+        </DockPanel>
+    </Border></UserControl>

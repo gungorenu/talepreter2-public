@@ -1,0 +1,311 @@
+services:
+
+  # infrastructure stuff
+
+  sql-server: 
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PWD}
+      MSSQL_PID: 'Developer'
+    ports:
+      - 1433:1433
+    volumes:
+      - ${VOLUME_MSSQL_DATA}:/var/opt/mssql/data/
+      - ${VOLUME_MSSQL_LOGS}:/var/opt/mssql/logs/
+    healthcheck:
+      #test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "http://localhost:1433", "-U", "sa", "-P", "${DB_PWD}", "-Q", "SELECT 1", "-b -o /dev/null", "||", "exit 1"]
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $${MSSQL_SA_PASSWORD} -Q 'SELECT 1' -b -o /dev/null
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+      
+  rabbitmq:
+    image: ${REGISTRY:-dev.talepreter.io}/rabbitmq-custom:${TAG:-latest}
+    hostname: rabbitmq
+    build: # we added delayed message plugin manually, so it is custom
+      context: ./
+      dockerfile: RabbitMQ/Dockerfile
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PWD}
+      RABBITMQ_CONSUMER_TIMEOUT: 30000
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ${VOLUME_RABBITMQ_DATA}:/var/lib/rabbitmq/
+      - ${VOLUME_RABBITMQ_LOGS}:/var/log/rabbitmq/
+ 
+  mongodb:
+    image: mongodb/mongodb-community-server:latest
+    hostname: mongodb
+    ports:
+      - 27017:27017
+    environment:
+      MONGODB_INITDB_ROOT_USERNAME: ${MONGODB_ADMIN_USER}
+      MONGODB_INITDB_ROOT_PASSWORD: ${MONGODB_ADMIN_PWD}
+    volumes:
+      - ./volumes/mongodb/:/data/db/
+
+  # db migrations
+
+  dbmigrate-orleans-clustering:
+    image: ${REGISTRY:-dev.talepreter.io}/dbmigrate-orleans-clustering:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: DBMigrations/Talepreter.Data.Migrations.OrleansClustering/Dockerfile
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      OrleansClusteringDBConnection: "Server=sql-server;Database=talepreter_orleanscluster;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+
+  dbmigrate-svc-tale:
+    image: ${REGISTRY:-dev.talepreter.io}/dbmigrate-svc-tale:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: DBMigrations/Talepreter.Data.Migrations.TaleSvc/Dockerfile
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      DBConnection: "Server=sql-server;Database=talepreter_talesvc;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+
+  dbmigrate-svc-actor:
+    image: ${REGISTRY:-dev.talepreter.io}/dbmigrate-svc-actor:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: DBMigrations/Talepreter.Data.Migrations.ActorSvc/Dockerfile
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      DBConnection: "Server=sql-server;Database=talepreter_actorsvc;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+
+  dbmigrate-svc-anecdote:
+    image: ${REGISTRY:-dev.talepreter.io}/dbmigrate-svc-anecdote:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: DBMigrations/Talepreter.Data.Migrations.AnecdoteSvc/Dockerfile
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      DBConnection: "Server=sql-server;Database=talepreter_anecdotesvc;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+
+  dbmigrate-svc-person:
+    image: ${REGISTRY:-dev.talepreter.io}/dbmigrate-svc-person:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: DBMigrations/Talepreter.Data.Migrations.PersonSvc/Dockerfile
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      DBConnection: "Server=sql-server;Database=talepreter_personsvc;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+
+  dbmigrate-svc-world:
+    image: ${REGISTRY:-dev.talepreter.io}/dbmigrate-svc-world:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: DBMigrations/Talepreter.Data.Migrations.WorldSvc/Dockerfile
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      DBConnection: "Server=sql-server;Database=talepreter_worldsvc;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+
+  # services
+
+  svc-tale:
+    image: ${REGISTRY:-dev.talepreter.io}/svc-tale:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: Services/Talepreter.TaleSvc/Dockerfile
+    ports:
+      - 11111:11111
+      - 30001:30001
+      - 19090:19090
+      - 19091:19091
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    volumes:
+      - ${USERPROFILE}\.aspnet\https:/https:ro
+    environment:
+      ASPNETCORE_Kestrel__Certificates__Default__Password: ${CERT_PASSWORD}
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/talepreter.pfx
+      DBConnection: "Server=sql-server;Database=talepreter_talesvc;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+      MongoDBConnection: "mongodb://${MONGODB_ADMIN_USER}:${MONGODB_ADMIN_PWD}@mongodb:27017/"
+      MongoDBName: talepreter
+      OrleansClusterDBConnection: "Server=sql-server;Database=talepreter_orleanscluster;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+      OrleansIPAddress: ${ORLEANS_IPADDRESS}
+      OrleansClusterId: TalepreterCluster
+      OrleansServiceId: TalepreterTaleSvc
+      RabbitMQUser: ${RABBITMQ_USERNAME}
+      RabbitMQPwd: ${RABBITMQ_PWD}
+      RabbitMQServer: rabbitmq
+      RabbitMQVirtualHost: /talepreter
+      RabbitMQConcurrentConsumerCount: ${RABBITMQ_CONSUMER_DISPATCH_CONCURRENCY}
+      RabbitMQMaxPublishChannel: ${RABBITMQ_PUBLISHER_POOL}
+      LoggingQueueReaders: ${LOG_QUEUEREADERS}
+      LoggingQueuePublishers: ${LOG_QUEUEPUBLISHERS}
+      LoggingCommandProcessors: ${LOG_COMMANDPROCESSORS}
+      LoggingApi: ${LOG_API}
+      LoggingGrains: ${LOG_GRAINS}
+      RabbitMQExecuteTimeout: ${TIMEOUT_RABBITMQ_EXECUTE}
+      GrainOperationTimeout: ${TIMEOUT_GRAINOPERATION}
+      TaskManagerTimeout: ${TIMEOUT_TASKMANAGER}
+      TaskManagerDelayTimeout: ${TIMEOUT_TASKMANAGER_DELAY}
+      TaskManagerParallelTaskCount: ${TASKMANAGER_PARALLELTASKCOUNT}
+      WorktaskTimeout: ${TIMEOUT_WORKTASK}
+      TaleSvcEnvironment: PROD
+      ASPNETCORE_HTTP_PORT: 19090
+      ASPNETCORE_HTTPS_PORT: 19091
+
+  svc-world:
+    image: ${REGISTRY:-dev.talepreter.io}/svc-world:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: Services/Talepreter.WorldSvc/Dockerfile
+    ports:
+      - 11112:11112
+      - 30002:30002
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      DBConnection: "Server=sql-server;Database=talepreter_worldsvc;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+      MongoDBConnection: "mongodb://${MONGODB_ADMIN_USER}:${MONGODB_ADMIN_PWD}@mongodb:27017/"
+      MongoDBName: talepreter
+      OrleansClusterDBConnection: "Server=sql-server;Database=talepreter_orleanscluster;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+      OrleansIPAddress: ${ORLEANS_IPADDRESS}
+      OrleansClusterId: TalepreterCluster
+      OrleansServiceId: TalepreterWorldSvc
+      RabbitMQUser: ${RABBITMQ_USERNAME}
+      RabbitMQPwd: ${RABBITMQ_PWD}
+      RabbitMQServer: rabbitmq
+      RabbitMQVirtualHost: /talepreter
+      RabbitMQConcurrentConsumerCount: ${RABBITMQ_CONSUMER_DISPATCH_CONCURRENCY}
+      RabbitMQMaxPublishChannel: ${RABBITMQ_PUBLISHER_POOL}
+      LoggingQueueReaders: ${LOG_QUEUEREADERS}
+      LoggingQueuePublishers: ${LOG_QUEUEPUBLISHERS}
+      LoggingCommandProcessors: ${LOG_COMMANDPROCESSORS}
+      LoggingGrains: ${LOG_GRAINS}
+      RabbitMQExecuteTimeout: ${TIMEOUT_RABBITMQ_EXECUTE}
+      GrainOperationTimeout: ${TIMEOUT_GRAINOPERATION}
+      TaskManagerTimeout: ${TIMEOUT_TASKMANAGER}
+      TaskManagerDelayTimeout: ${TIMEOUT_TASKMANAGER_DELAY}
+      TaskManagerParallelTaskCount: ${TASKMANAGER_PARALLELTASKCOUNT}
+      WorktaskTimeout: ${TIMEOUT_WORKTASK}
+
+  svc-actor:
+    image: ${REGISTRY:-dev.talepreter.io}/svc-actor:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: Services/Talepreter.ActorSvc/Dockerfile
+    ports:
+      - 11113:11113
+      - 30003:30003
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      DBConnection: "Server=sql-server;Database=talepreter_actorsvc;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+      MongoDBConnection: "mongodb://${MONGODB_ADMIN_USER}:${MONGODB_ADMIN_PWD}@mongodb:27017/"
+      MongoDBName: talepreter
+      OrleansClusterDBConnection: "Server=sql-server;Database=talepreter_orleanscluster;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+      OrleansIPAddress: ${ORLEANS_IPADDRESS}
+      OrleansClusterId: TalepreterCluster
+      OrleansServiceId: TalepreterActorSvc
+      RabbitMQUser: ${RABBITMQ_USERNAME}
+      RabbitMQPwd: ${RABBITMQ_PWD}
+      RabbitMQServer: rabbitmq
+      RabbitMQVirtualHost: /talepreter
+      RabbitMQConcurrentConsumerCount: ${RABBITMQ_CONSUMER_DISPATCH_CONCURRENCY}
+      RabbitMQMaxPublishChannel: ${RABBITMQ_PUBLISHER_POOL}
+      LoggingQueueReaders: ${LOG_QUEUEREADERS}
+      LoggingQueuePublishers: ${LOG_QUEUEPUBLISHERS}
+      LoggingCommandProcessors: ${LOG_COMMANDPROCESSORS}
+      LoggingGrains: ${LOG_GRAINS}
+      RabbitMQExecuteTimeout: ${TIMEOUT_RABBITMQ_EXECUTE}
+      GrainOperationTimeout: ${TIMEOUT_GRAINOPERATION}
+      TaskManagerTimeout: ${TIMEOUT_TASKMANAGER}
+      TaskManagerDelayTimeout: ${TIMEOUT_TASKMANAGER_DELAY}
+      TaskManagerParallelTaskCount: ${TASKMANAGER_PARALLELTASKCOUNT}
+      WorktaskTimeout: ${TIMEOUT_WORKTASK}
+
+  svc-anecdote:
+    image: ${REGISTRY:-dev.talepreter.io}/svc-anecdote:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: Services/Talepreter.AnecdoteSvc/Dockerfile
+    ports:
+      - 11114:11114
+      - 30004:30004
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      DBConnection: "Server=sql-server;Database=talepreter_anecdotesvc;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+      MongoDBConnection: "mongodb://${MONGODB_ADMIN_USER}:${MONGODB_ADMIN_PWD}@mongodb:27017/"
+      MongoDBName: talepreter
+      OrleansClusterDBConnection: "Server=sql-server;Database=talepreter_orleanscluster;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+      OrleansIPAddress: ${ORLEANS_IPADDRESS}
+      OrleansClusterId: TalepreterCluster
+      OrleansServiceId: TalepreterAnecdoteSvc
+      RabbitMQUser: ${RABBITMQ_USERNAME}
+      RabbitMQPwd: ${RABBITMQ_PWD}
+      RabbitMQServer: rabbitmq
+      RabbitMQVirtualHost: /talepreter
+      RabbitMQConcurrentConsumerCount: ${RABBITMQ_CONSUMER_DISPATCH_CONCURRENCY}
+      RabbitMQMaxPublishChannel: ${RABBITMQ_PUBLISHER_POOL}
+      LoggingQueueReaders: ${LOG_QUEUEREADERS}
+      LoggingQueuePublishers: ${LOG_QUEUEPUBLISHERS}
+      LoggingCommandProcessors: ${LOG_COMMANDPROCESSORS}
+      LoggingGrains: ${LOG_GRAINS}
+      RabbitMQExecuteTimeout: ${TIMEOUT_RABBITMQ_EXECUTE}
+      GrainOperationTimeout: ${TIMEOUT_GRAINOPERATION}
+      TaskManagerTimeout: ${TIMEOUT_TASKMANAGER}
+      TaskManagerDelayTimeout: ${TIMEOUT_TASKMANAGER_DELAY}
+      TaskManagerParallelTaskCount: ${TASKMANAGER_PARALLELTASKCOUNT}
+      WorktaskTimeout: ${TIMEOUT_WORKTASK}
+
+  svc-person:
+    image: ${REGISTRY:-dev.talepreter.io}/svc-person:${TAG:-latest}
+    build:
+      context: ./
+      dockerfile: Services/Talepreter.PersonSvc/Dockerfile
+    ports:
+      - 11115:11115
+      - 30005:30005
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    environment:
+      DBConnection: "Server=sql-server;Database=talepreter_personsvc;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+      MongoDBConnection: "mongodb://${MONGODB_ADMIN_USER}:${MONGODB_ADMIN_PWD}@mongodb:27017/"
+      MongoDBName: talepreter
+      OrleansClusterDBConnection: "Server=sql-server;Database=talepreter_orleanscluster;User Id=sa;Password='${DB_PWD}';TrustServerCertificate=true"
+      OrleansIPAddress: ${ORLEANS_IPADDRESS}
+      OrleansClusterId: TalepreterCluster
+      OrleansServiceId: TalepreterPersonSvc
+      RabbitMQUser: ${RABBITMQ_USERNAME}
+      RabbitMQPwd: ${RABBITMQ_PWD}
+      RabbitMQServer: rabbitmq
+      RabbitMQVirtualHost: /talepreter
+      RabbitMQConcurrentConsumerCount: ${RABBITMQ_CONSUMER_DISPATCH_CONCURRENCY}
+      RabbitMQMaxPublishChannel: ${RABBITMQ_PUBLISHER_POOL}
+      LoggingQueueReaders: ${LOG_QUEUEREADERS}
+      LoggingQueuePublishers: ${LOG_QUEUEPUBLISHERS}
+      LoggingCommandProcessors: ${LOG_COMMANDPROCESSORS}
+      LoggingGrains: ${LOG_GRAINS}
+      RabbitMQExecuteTimeout: ${TIMEOUT_RABBITMQ_EXECUTE}
+      GrainOperationTimeout: ${TIMEOUT_GRAINOPERATION}
+      TaskManagerTimeout: ${TIMEOUT_TASKMANAGER}
+      TaskManagerDelayTimeout: ${TIMEOUT_TASKMANAGER_DELAY}
+      TaskManagerParallelTaskCount: ${TASKMANAGER_PARALLELTASKCOUNT}
+      WorktaskTimeout: ${TIMEOUT_WORKTASK}
+

@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<ServerGarbageCollection>true</ServerGarbageCollection>
+		<ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Orleans.Core.Abstractions" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" />
+		<PackageReference Include="Serilog" />
+		<PackageReference Include="Serilog.AspNetCore" />
+		<PackageReference Include="Serilog.Sinks.Console" />
+		<PackageReference Include="Serilog.Expressions" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+		<PackageReference Include="Microsoft.Orleans.Server" />
+		<PackageReference Include="Microsoft.Orleans.Sdk" />
+		<PackageReference Include="Microsoft.Orleans.Clustering.Adonet" />
+		<PackageReference Include="Microsoft.Orleans.Persistence.AdoNet" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\Common\Talepreter.Common.Orleans\Talepreter.Common.Orleans.csproj" />
+		<ProjectReference Include="..\..\Common\Talepreter.Common.RabbitMQ\Talepreter.Common.RabbitMQ.csproj" />
+		<ProjectReference Include="..\..\Contracts\Talepreter.Contracts.Orleans.Grains\Talepreter.Contracts.Orleans.Grains.csproj" />
+		<ProjectReference Include="..\..\DB\Talepreter.Data.DbContext.ActorSvc\Talepreter.Data.DbContext.ActorSvc.csproj" />
+		<ProjectReference Include="..\..\Model\Talepreter.Model.Command\Talepreter.Model.Command.csproj" />
+		<ProjectReference Include="..\..\Model\Talepreter.Model.Mapper\Talepreter.Model.Mapper.csproj" />
+		<ProjectReference Include="..\..\Operations\Talepreter.Operations.Adventure\Talepreter.Operations.Adventure.csproj" />
+		<ProjectReference Include="..\..\Operations\Talepreter.Operations.Grains\Talepreter.Operations.Grains.csproj" />
+	</ItemGroup>
+</Project>

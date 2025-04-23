@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\Common\Talepreter.Common.RabbitMQ\Talepreter.Common.RabbitMQ.csproj" />
+		<ProjectReference Include="..\..\Common\Talepreter.Exceptions\Talepreter.Exceptions.csproj" />
+		<ProjectReference Include="..\..\Contracts\Talepreter.Contracts.Messaging\Talepreter.Contracts.Messaging.csproj" />
+		<ProjectReference Include="..\..\Contracts\Talepreter.Contracts.Orleans.Grains\Talepreter.Contracts.Orleans.Grains.csproj" />
+		<ProjectReference Include="..\..\DB\Talepreter.Data.BaseTypes\Talepreter.Data.BaseTypes.csproj" />
+		<ProjectReference Include="..\..\DB\Talepreter.Data.DocumentDbContext\Talepreter.Data.DocumentDbContext.csproj" />
+		<ProjectReference Include="..\..\Model\Talepreter.Model.Command\Talepreter.Model.Command.csproj" />
+	</ItemGroup>
+
+</Project>
